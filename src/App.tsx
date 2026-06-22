@@ -7,91 +7,166 @@ import { BottomNav } from './components/BottomNav';
 import { useAudioRecorder } from './lib/useAudioRecorder';
 import { useBluetooth } from './lib/useBluetooth';
 import { Recording } from './types';
-import { deleteRecording } from './lib/storage';
+import { deleteRecording, getRecordings } from './lib/storage';
+import { AnimatePresence, motion } from 'motion/react';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState('record');
   const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null);
+  const [lastLoadedRecording, setLastLoadedRecording] = useState<Recording | null>(null);
   
   const audioHook = useAudioRecorder();
   const bluetoothHook = useBluetooth();
 
   const handleNavigate = (tab: string) => {
     setCurrentTab(tab);
-    setSelectedRecording(null);
   };
-
 
   const handleSelectRecording = (recording: Recording) => {
     setSelectedRecording(recording);
+    setLastLoadedRecording(recording);
+    setCurrentTab('edit'); // Automatically switch to the editing tab when a recording is tapped
   };
 
   const handleDeleteRecording = async (id: string) => {
     await deleteRecording(id);
-    setSelectedRecording(null);
+    if (selectedRecording?.id === id) {
+      setSelectedRecording(null);
+    }
+    if (lastLoadedRecording?.id === id) {
+      setLastLoadedRecording(null);
+    }
   };
 
+  // Pre-load the latest recording to initialize the editor space elegantly if none is selected
+  useEffect(() => {
+    getRecordings().then((recs) => {
+      if (recs && recs.length > 0) {
+        // Sort by newest
+        const sorted = [...recs].sort((a, b) => b.date - a.date);
+        setLastLoadedRecording(sorted[0]);
+      }
+    }).catch(console.warn);
+  }, [currentTab]);
+
   return (
-    <div className="flex justify-center items-center h-screen w-full font-sans overflow-hidden">
-      {/* Mobile constraint container simulating device frame */}
-      <div className="w-full h-full max-w-md bg-white flex flex-col relative overflow-hidden shadow-2xl sm:h-[850px] sm:rounded-[3rem] sm:border-8 sm:border-slate-800">
+    <div className="relative flex justify-center items-center h-screen w-full bg-[#FAF8F5] overflow-hidden">
+      
+      {/* Background Liquid Glass Ambient Glowing Blobs */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+        <motion.div 
+          animate={{
+            x: [0, 40, -20, 0],
+            y: [0, -30, 40, 0],
+            scale: [1, 1.1, 0.9, 1]
+          }}
+          transition={{
+            duration: 15,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute top-1/4 -left-20 w-80 h-80 rounded-full bg-gradient-to-tr from-emerald-200/40 via-teal-300/30 to-emerald-400/20 blur-3xl"
+        />
+        <motion.div 
+          animate={{
+            x: [0, -50, 30, 0],
+            y: [0, 40, -30, 0],
+            scale: [1, 0.95, 1.05, 1]
+          }}
+          transition={{
+            duration: 18,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute bottom-1/4 -right-16 w-96 h-96 rounded-full bg-gradient-to-br from-cyan-200/40 via-teal-100/30 to-emerald-300/20 blur-3xl"
+        />
+        {/* Extra glowing orange orb representing high fidelity warm voice EQ frequency lights */}
+        <motion.div 
+          animate={{
+            x: [0, 20, -30, 0],
+            y: [0, 30, -10, 0],
+          }}
+          transition={{
+            duration: 12,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute top-1/2 left-1/3 w-64 h-64 rounded-full bg-amber-100/25 blur-3xl"
+        />
+      </div>
+
+      {/* Screen Frame Container with Frosted Glass panel design styles */}
+      <div className="w-full h-full max-w-md bg-white/60 tall:bg-white/50 backdrop-blur-2xl flex flex-col relative overflow-hidden shadow-[0_24px_80px_rgba(0,0,0,0.06)] border border-white/50 z-10 sm:h-[830px] sm:rounded-[2.8rem]">
         
-        {/* Dynamic Island / Status bar placeholder for realism on desktop */}
-        <div className="hidden sm:flex absolute top-0 w-full h-8 bg-transparent z-50 justify-center">
-            <div className="w-32 h-6 bg-slate-800 rounded-b-3xl"></div>
+        {/* Status Bar / Dynamic Island decoration */}
+        <div className="hidden sm:flex absolute top-0 left-0 right-0 h-6 bg-transparent z-50 justify-center">
+          <div className="w-28 h-4.5 bg-black/80 rounded-b-xl shadow-inner flex items-center justify-around px-2 text-[8px] text-white/50 font-bold tracking-widest font-mono">
+            <span>VOCALA</span>
+            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping"></div>
+          </div>
         </div>
 
+        {/* Action views router */}
         <div className="flex-1 overflow-hidden relative z-10">
-          {selectedRecording ? (
-            <EditScreen 
-              recording={selectedRecording} 
-              onBack={() => setSelectedRecording(null)} 
-              onDelete={handleDeleteRecording}
-            />
-          ) : (
-            <>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentTab}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="w-full h-full"
+            >
               {currentTab === 'record' && (
                 <RecordScreen 
-                    audioHook={audioHook} 
-                    bluetoothHook={bluetoothHook}
-                    onSaveCompleted={() => handleNavigate('recordings')} 
+                  audioHook={audioHook} 
+                  bluetoothHook={bluetoothHook}
+                  onSaveCompleted={() => handleNavigate('recordings')} 
+                  onNavigateToTab={handleNavigate}
                 />
               )}
+
               {currentTab === 'recordings' && (
                 <ListScreen 
-                    onSelect={handleSelectRecording} 
-                    onRecordNew={() => handleNavigate('record')}
+                  onSelect={handleSelectRecording} 
+                  onRecordNew={() => handleNavigate('record')}
                 />
               )}
+
+              {currentTab === 'edit' && (
+                <EditScreen 
+                  recording={selectedRecording || lastLoadedRecording || {
+                    id: 'placeholder',
+                    title: 'No Recording Selected',
+                    date: Date.now(),
+                    durationMs: 0,
+                    blob: new Blob(),
+                    tags: ['Draft'],
+                    isBookmarked: false
+                  }} 
+                  onBack={() => handleNavigate('recordings')} 
+                  onDelete={handleDeleteRecording}
+                />
+              )}
+
               {currentTab === 'settings' && (
                 <SettingsScreen 
-                    audioHook={audioHook} 
-                    bluetoothHook={bluetoothHook}
-                    onBack={() => handleNavigate('record')} 
+                  audioHook={audioHook} 
+                  bluetoothHook={bluetoothHook}
+                  onBack={() => handleNavigate('record')} 
                 />
               )}
-              {currentTab === 'files' && (
-                <div className="flex flex-col items-center justify-center h-full bg-slate-50 text-gray-400 p-8 text-center">
-                   <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                   </div>
-                   <h2 className="text-xl font-medium text-gray-800 mb-2">Folder Management</h2>
-                   <p className="text-sm">Create nested folders to organize your recordings. (Coming soon)</p>
-                </div>
-              )}
-            </>
-          )}
+            </motion.div>
+          </AnimatePresence>
         </div>
 
-        {/* Bottom Navigation */}
-        {!selectedRecording && (
-          <div className="relative z-20">
-             <BottomNav 
-               currentTab={currentTab === 'recordings' ? 'record' : currentTab} 
-               onChangeTab={handleNavigate} 
-             />
-          </div>
-        )}
+        {/* Global Floating Glass bottom menu */}
+        <div className="relative z-20 shrink-0">
+          <BottomNav 
+            currentTab={currentTab} 
+            onChangeTab={handleNavigate} 
+          />
+        </div>
 
       </div>
     </div>

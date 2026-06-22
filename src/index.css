@@ -7,8 +7,34 @@
 }
 
 body {
-  background-color: #0f172a; /* Make canvas background dark to act as device frame */
-  color: #0f172a;
+  background-color: #12131C; /* Elegant deep midnight background for canvas */
+  color: #1E2229;
+  font-family: "Inter", sans-serif;
+}
+
+/* Custom Soft/Neumorphic Shadows and Gradients */
+.bg-soft-cream {
+  background-color: #F8F6F2;
+}
+
+.shadow-soft-sm {
+  box-shadow: 2px 2px 5px rgba(163, 160, 153, 0.15), -2px -2px 5px rgba(255, 255, 255, 0.82);
+}
+
+.shadow-soft {
+  box-shadow: 4px 4px 12px rgba(163, 160, 153, 0.22), -4px -4px 12px rgba(255, 255, 255, 0.9);
+}
+
+.shadow-soft-inset {
+  box-shadow: inset 2px 2px 6px rgba(163, 160, 153, 0.2), inset -2px -2px 6px rgba(255, 255, 255, 0.8);
+}
+
+.shadow-soft-lg {
+  box-shadow: 8px 8px 24px rgba(163, 160, 153, 0.28), -8px -8px 24px rgba(255, 255, 255, 0.95);
+}
+
+.border-soft {
+  border: 1px solid rgba(255, 255, 255, 0.6);
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */

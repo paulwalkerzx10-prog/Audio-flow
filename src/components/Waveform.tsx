@@ -58,14 +58,14 @@ export function Waveform({ data, isRecording }: WaveformProps) {
 
         ctx.lineTo(canvas.width, canvas.height / 2);
         
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = '#2563eb'; // blue-600
+        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = '#10B981'; // emerald-500
         ctx.stroke();
         
         // Add a gentle fill underneath
         ctx.lineTo(x, centerY);
         ctx.lineTo(0, centerY);
-        ctx.fillStyle = 'rgba(37, 99, 235, 0.1)';
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
         ctx.fill();
       }
 
