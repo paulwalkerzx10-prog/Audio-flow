@@ -8,18 +8,12 @@ export interface Recording {
   isBookmarked: boolean;
 }
 
-export type DSPConfig = {
-  noiseReduction: boolean;
-  echoCancellation: boolean;
-  autoGainControl: boolean;
-  voiceBoost: boolean;
-  compressor: boolean;
+export type SettingsConfig = {
+  bluetoothEarbuds: boolean;
+  minDecibelThreshold: number;
 };
 
-export const defaultDSPConfig: DSPConfig = {
-  noiseReduction: true,
-  echoCancellation: true,
-  autoGainControl: true,
-  voiceBoost: false,
-  compressor: false,
+export const defaultSettingsConfig: SettingsConfig = {
+  bluetoothEarbuds: false,
+  minDecibelThreshold: -50,
 };

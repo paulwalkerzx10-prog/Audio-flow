@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Search, Filter, Play, MoreVertical, Star, Plus, Grid, List, Music, Radio, Bookmark, Volume2, Calendar, Clock, Sparkles } from 'lucide-react';
-import { getRecordings, saveRecording } from '../lib/storage';
+import React, { useState, useEffect } from 'react';
+import { Search, Filter, Play, MoreVertical, Star, Plus, Grid, List, Music, Radio, Bookmark, Volume2, Calendar, Clock, Sparkles, Trash2 } from 'lucide-react';
+import { getRecordings, saveRecording, deleteRecording } from '../lib/storage';
 import { Recording } from '../types';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
@@ -16,61 +16,15 @@ export function ListScreen({ onSelect, onRecordNew }: ListScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isGridView, setIsGridView] = useState(false);
 
-  // Prepopulate standard mock recordings if empty so the user sees a premium, fully populated interactive view
-  const seedMockRecordings = async () => {
+  const loadData = async () => {
     const rawRecs = await getRecordings();
-    if (rawRecs.length === 0) {
-      const mocks: Recording[] = [
-        {
-          id: 'mock-1',
-          title: 'Vocal Masterclass 03',
-          date: new Date('2026-06-20T10:34:00').getTime(),
-          durationMs: 145000, 
-          tags: ['Recordings'],
-          isBookmarked: true,
-          blob: new Blob()
-        },
-        {
-          id: 'mock-2',
-          title: 'Field Acoustics Demo',
-          date: new Date('2026-06-19T14:15:00').getTime(),
-          durationMs: 222000, 
-          tags: ['Recordings'],
-          isBookmarked: false,
-          blob: new Blob()
-        },
-        {
-          id: 'mock-3',
-          title: 'Raw Acoustic Melody',
-          date: new Date('2026-06-18T09:41:00').getTime(),
-          durationMs: 87000, 
-          tags: ['Favorites'],
-          isBookmarked: true,
-          blob: new Blob()
-        },
-        {
-          id: 'mock-4',
-          title: 'Ambient Vocal Synthesis',
-          date: new Date('2026-06-17T11:20:00').getTime(),
-          durationMs: 72800, 
-          tags: ['Recordings'],
-          isBookmarked: false,
-          blob: new Blob()
-        }
-      ];
-
-      for (const item of mocks) {
-        await saveRecording(item);
-      }
-      const loaded = await getRecordings();
-      setRecordings(loaded.sort((a, b) => b.date - a.date));
-    } else {
-      setRecordings(rawRecs.sort((a, b) => b.date - a.date));
-    }
+    setRecordings(rawRecs.sort((a, b) => b.date - a.date));
   };
 
   useEffect(() => {
-    seedMockRecordings();
+    loadData().catch((err) => {
+      console.warn("Failsafe warning: loadData rejected", err);
+    });
   }, []);
 
   const formatDuration = (ms: number) => {
@@ -91,11 +45,22 @@ export function ListScreen({ onSelect, onRecordNew }: ListScreenProps) {
     setRecordings(updated);
     const targetFile = updated.find(x => x.id === rec.id);
     if (targetFile) {
-      await saveRecording(targetFile);
+      try {
+        await saveRecording(targetFile);
+      } catch (err) {
+        console.warn("Failed to toggle favorite:", err);
+      }
     }
   };
 
   // Filter & Search Logic
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    await deleteRecording(id);
+    const updated = recordings.filter(r => r.id !== id);
+    setRecordings(updated);
+  };
+
   const filteredRecordings = recordings.filter(rec => {
     const matchesSearch = rec.title.toLowerCase().includes(searchQuery.toLowerCase());
     if (filter === 'All') return matchesSearch;
@@ -107,7 +72,7 @@ export function ListScreen({ onSelect, onRecordNew }: ListScreenProps) {
     <div className="flex flex-col h-full bg-transparent overflow-hidden relative select-none">
       
       {/* Top Header */}
-      <div className="px-6 pt-12 pb-4 flex items-center justify-between border-b border-white/20 bg-white/25 backdrop-blur-md">
+      <div className="px-6 pt-12 pb-4 flex items-center justify-between border-b border-white/10 bg-white/15 backdrop-blur-xl">
         <div>
           <h1 className="text-base font-extrabold text-[#1E2229] tracking-tight flex items-center space-x-1.5 leading-none">
             <span>Library Clips</span>
@@ -118,7 +83,7 @@ export function ListScreen({ onSelect, onRecordNew }: ListScreenProps) {
         
         {/* Actions Row */}
         <div className="flex items-center space-x-2">
-          <div className="relative flex items-center bg-white/70 rounded-full border border-white/60 p-1 shadow-sm">
+          <div className="relative flex items-center bg-white/30 backdrop-blur-md rounded-full border border-white/30 p-1 shadow-sm">
             <Search size={14} className="text-gray-450 ml-2.5 absolute" />
             <input 
               type="text" 
@@ -133,7 +98,7 @@ export function ListScreen({ onSelect, onRecordNew }: ListScreenProps) {
 
       {/* Categories Bar & Grid Switcher */}
       <div className="px-6 py-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center space-x-1.5 bg-white/50 p-1 rounded-full border border-white/60 shadow-inner">
+        <div className="flex items-center space-x-1.5 bg-white/20 p-1 rounded-full border border-white/30 backdrop-blur-md shadow-inner">
           {['All', 'Recordings', 'Favorites'].map(tab => (
             <button
               key={tab}
@@ -150,7 +115,7 @@ export function ListScreen({ onSelect, onRecordNew }: ListScreenProps) {
         </div>
 
         {/* View mode toggle switcher */}
-        <div className="flex items-center space-x-1 bg-white/70 p-1 rounded-full border border-white/60 shadow-sm">
+        <div className="flex items-center space-x-1 bg-white/30 p-1 rounded-full border border-white/30 backdrop-blur-md shadow-sm">
           <button 
             onClick={() => setIsGridView(false)}
             className={`p-1.5 rounded-full transition-colors cursor-pointer ${!isGridView ? 'bg-[#EEF9F1] text-emerald-500' : 'text-gray-450'}`}
@@ -192,7 +157,7 @@ export function ListScreen({ onSelect, onRecordNew }: ListScreenProps) {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   onClick={() => onSelect(rec)}
-                  className="bg-white/45 backdrop-blur-md p-4 rounded-3xl border border-white/60 shadow-sm hover:shadow-md transform hover:-translate-y-0.5 transition duration-200 cursor-pointer flex flex-col justify-between"
+                  className="bg-white/15 backdrop-blur-2xl p-4 rounded-3xl border border-white/25 shadow-sm hover:shadow-md hover:bg-white/25 transform hover:-translate-y-0.5 transition duration-200 cursor-pointer flex flex-col justify-between"
                 >
                   <div className="flex items-start space-x-3.5 flex-1 min-w-0">
                     {/* Compact sleek Play bubble */}
@@ -221,6 +186,17 @@ export function ListScreen({ onSelect, onRecordNew }: ListScreenProps) {
                     </div>
 
                     <div className="flex items-center space-x-1">
+                      {/* Delete icon */}
+                      <button 
+                        onClick={(e) => handleDelete(e, rec.id)}
+                        className="p-1 rounded-full hover:bg-red-50/70 active:scale-90 transition shrink-0"
+                      >
+                        <Trash2 
+                          size={15} 
+                          className="text-gray-300 hover:text-red-400 transition-colors duration-200" 
+                        />
+                      </button>
+
                       {/* Golden Favorite star */}
                       <button 
                         onClick={(e) => handleToggleFavorite(e, rec)}

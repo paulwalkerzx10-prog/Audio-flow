@@ -7,12 +7,11 @@ import { motion, AnimatePresence } from 'motion/react';
 
 interface RecordScreenProps {
   audioHook: any; 
-  bluetoothHook: any;
   onSaveCompleted: () => void;
   onNavigateToTab: (tab: string) => void;
 }
 
-export function RecordScreen({ audioHook, bluetoothHook, onSaveCompleted, onNavigateToTab }: RecordScreenProps) {
+export function RecordScreen({ audioHook, onSaveCompleted, onNavigateToTab }: RecordScreenProps) {
   const {
     isRecording,
     isPaused,
@@ -25,40 +24,49 @@ export function RecordScreen({ audioHook, bluetoothHook, onSaveCompleted, onNavi
     error
   } = audioHook;
   
-  const { device, batteryLevel } = bluetoothHook;
   const [showSavedFeedback, setShowSavedFeedback] = useState(false);
 
   const handleStartStop = async () => {
-    if (isRecording) {
-      if (isPaused) {
-        resumeRecording();
+    try {
+      if (isRecording) {
+        if (isPaused) {
+          resumeRecording();
+        } else {
+          pauseRecording();
+        }
       } else {
-        pauseRecording();
+        await startRecording();
       }
-    } else {
-      await startRecording();
+    } catch (e: any) {
+      console.warn("handleStartStop failed gracefully:", e);
     }
   };
 
   const handleSave = async () => {
-    const blob = await stopRecording();
-    if (blob.size > 0 && duration > 0) {
-      const title = `Vocala Note - ${format(new Date(), 'MMM dd, hh:mm a')}`;
-      const rec = {
-        id: crypto.randomUUID(),
-        title,
-        date: Date.now(),
-        durationMs: duration,
-        blob,
-        tags: ['Recordings'],
-        isBookmarked: false
-      };
-      await saveRecording(rec);
-      setShowSavedFeedback(true);
-      setTimeout(() => {
-        setShowSavedFeedback(false);
-        onSaveCompleted();
-      }, 1200);
+    try {
+      const blob = await stopRecording();
+      if (blob && blob.size > 0 && duration > 0) {
+        const title = `Vocala Note - ${format(new Date(), 'MMM dd, hh:mm a')}`;
+        const rec = {
+          id: (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') 
+            ? crypto.randomUUID() 
+            : 'rec_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now().toString(36),
+          title,
+          date: Date.now(),
+          durationMs: duration,
+          blob,
+          tags: ['Recordings'],
+          isBookmarked: false
+        };
+        await saveRecording(rec);
+        setShowSavedFeedback(true);
+        setTimeout(() => {
+          setShowSavedFeedback(false);
+          onSaveCompleted();
+        }, 1200);
+      }
+    } catch (e: any) {
+      console.warn("handleSave failed gracefully:", e);
     }
   };
 
@@ -70,35 +78,51 @@ export function RecordScreen({ audioHook, bluetoothHook, onSaveCompleted, onNavi
     return `${h}:${m}:${s}`;
   };
 
+  const getAudioAmplitude = () => {
+    if (!isRecording || isPaused || !analyserData || analyserData.length === 0) return 0;
+    let sum = 0;
+    for (let i = 0; i < analyserData.length; i++) {
+      const val = Math.abs(analyserData[i] - 128);
+      sum += val;
+    }
+    const avg = sum / analyserData.length;
+    return Math.min(avg / 48, 1);
+  };
+
+  const getDecibels = () => {
+    if (!isRecording || isPaused || !analyserData || analyserData.length === 0) return -60;
+    let sum = 0;
+    for (let i = 0; i < analyserData.length; i++) {
+      const val = (analyserData[i] - 128) / 128;
+      sum += val * val;
+    }
+    const rms = Math.sqrt(sum / analyserData.length);
+    if (rms === 0) return -60;
+    let db = 20 * Math.log10(rms);
+    return Math.max(-60, Math.min(0, db));
+  };
+
   return (
     <div className="flex flex-col h-full bg-transparent relative select-none overflow-hidden pb-28">
       
       {/* Decorative top translucent header panel */}
-      <div className="px-6 pt-12 pb-5 flex items-center justify-between border-b border-white/20 bg-white/25 backdrop-blur-md">
+      <div className="px-6 pt-12 pb-5 flex items-center justify-between border-b border-white/10 bg-white/15 backdrop-blur-xl">
         
-        {/* Connection status pill */}
-        <div 
-          onClick={() => onNavigateToTab('settings')}
-          className="flex items-center space-x-3 bg-white/70 hover:bg-white p-2 pr-4 rounded-full border border-white/50 shadow-sm cursor-pointer transition active:scale-95"
-        >
+        {/* Brand Identity Title */}
+        <div className="flex items-center space-x-2.5">
           <div className="bg-[#EAF3EB] w-9 h-9 rounded-full flex items-center justify-center text-emerald-500 shadow-inner">
-            <Headphones size={18} className={device ? "animate-bounce" : ""} />
+            <Mic size={18} />
           </div>
-          <div className="text-left">
-            <h4 className="text-xs font-bold text-[#2A2E35] leading-none shrink-0">{device ? device.name : 'Device Standby'}</h4>
-            <div className="flex items-center space-x-1 mt-1">
-              <span className={`text-[9px] font-extrabold tracking-wide uppercase ${device ? 'text-emerald-500' : 'text-gray-400'}`}>
-                {device ? 'Linked' : 'Receiver Off'}
-              </span>
-              <span className="text-[9px] text-[#A3A099]">• {device && batteryLevel !== null ? `${batteryLevel}%` : 'Phone Mic'}</span>
-            </div>
+          <div>
+            <h1 className="text-base font-extrabold text-[#1E2229] leading-none">Vocala Studio</h1>
+            <p className="text-[10px] text-gray-400 font-bold mt-1">High-Fidelity Audio capture</p>
           </div>
         </div>
 
         {/* Navigation settings fob */}
         <button 
           onClick={() => onNavigateToTab('settings')}
-          className="w-10 h-10 bg-white/70 hover:bg-white rounded-full border border-white/50 flex items-center justify-center text-[#2A2E35] shadow-sm hover:scale-105 active:scale-95 transition"
+          className="w-10 h-10 bg-white/40 hover:bg-white/60 rounded-full border border-white/30 flex items-center justify-center text-[#2A2E35] shadow-sm hover:scale-105 active:scale-95 transition"
         >
           <Settings size={18} />
         </button>
@@ -133,24 +157,54 @@ export function RecordScreen({ audioHook, bluetoothHook, onSaveCompleted, onNavi
         
         <div className="relative flex items-center justify-center w-72 h-72">
           
-          {/* Pulsating glowing rings when active */}
-          <AnimatePresence>
-            {isRecording && !isPaused && (
-              <motion.div 
-                initial={{ transform: 'scale(1)', opacity: 0.3 }}
-                animate={{ transform: 'scale(1.23)', opacity: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ repeat: Infinity, duration: 2, ease: "easeOut" }}
-                className="absolute inset-4 rounded-full bg-emerald-400/20 z-0 pointer-events-none"
+          {/* Circular wave beat animation reacting on recording (slow and smooth) */}
+          <div className="absolute inset-[-40px] z-0 pointer-events-none flex items-center justify-center">
+            {isRecording && !isPaused ? (
+              Array.from({ length: 4 }).map((_, i) => {
+                const amp = getAudioAmplitude();
+                return (
+                  <motion.div
+                    key={i}
+                    animate={{
+                      scale: [1 + i * 0.18, 1.25 + i * 0.22 + amp * 0.45, 1 + i * 0.18],
+                      rotate: [i * 30, i * 30 + 180, i * 30 + 360],
+                      opacity: [0.12, 0.45 + amp * 0.25, 0.12],
+                    }}
+                    transition={{
+                      duration: 4.5 + i * 1.5, // Slow, smooth, and hypnotic
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                    className="absolute inset-4 rounded-full border border-emerald-400/30 shadow-[0_0_32px_rgba(16,185,129,0.06)]"
+                    style={{
+                      borderStyle: i % 2 === 0 ? 'solid' : 'dashed',
+                      borderWidth: `${1 + i * 0.5}px`,
+                    }}
+                  />
+                );
+              })
+            ) : (
+              // Ambient breathing rings when inactive/paused
+              <motion.div
+                animate={{
+                  scale: [0.96, 1.04, 0.96],
+                  opacity: [0.08, 0.14, 0.08],
+                }}
+                transition={{
+                  duration: 6,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+                className="absolute inset-8 rounded-full border border-emerald-500/10"
               />
             )}
-          </AnimatePresence>
+          </div>
 
           {/* Frosted beveled outer ring */}
-          <div className="absolute inset-0 rounded-full bg-white/35 backdrop-blur-lg border border-white/80 shadow-[0_16px_48px_-12px_rgba(0,0,0,0.06)] flex items-center justify-center z-10">
+          <div className="absolute inset-0 rounded-full bg-white/20 backdrop-blur-2xl border border-white/40 shadow-[0_24px_64px_rgba(0,0,0,0.04)] flex items-center justify-center z-10">
             
             {/* Emerald/grey dynamic track orbit */}
-            <div className={`absolute inset-8 rounded-full border-4 ${isRecording && !isPaused ? 'border-emerald-500' : 'border-gray-200'} transition-all duration-300 flex items-center justify-center bg-white/90 shadow-inner z-20`}>
+            <div className={`absolute inset-8 rounded-full border-4 ${isRecording && !isPaused ? 'border-emerald-500' : 'border-gray-200'} transition-all duration-300 flex items-center justify-center bg-white/60 backdrop-blur-md border border-white/35 shadow-inner z-20`}>
               
               <div className="flex flex-col items-center text-center">
                 <div className="flex items-center space-x-1.5 mb-1.5 bg-[#EEF9F1] px-3 py-0.5 rounded-full border border-[#D5EEDC]">
@@ -198,13 +252,36 @@ export function RecordScreen({ audioHook, bluetoothHook, onSaveCompleted, onNavi
 
         </div>
 
-        {/* Real-time Detailed Waveform Container */}
-        <div className="w-full my-6 bg-white/30 backdrop-blur-md rounded-2xl p-4 border border-white/40 shadow-sm relative overflow-hidden">
-          <Waveform data={analyserData} isRecording={isRecording && !isPaused} />
+        {/* Real-time Detailed Waveform & DB Meter Container */}
+        <div className="w-full my-6 flex space-x-3">
+          <div className="flex-1 bg-white/15 backdrop-blur-xl rounded-2xl p-4 border border-white/25 shadow-sm relative overflow-hidden">
+            <Waveform 
+              analyserNode={audioHook.analyserNode || null} 
+              fallbackData={analyserData} 
+              isRecording={isRecording && !isPaused} 
+            />
+          </div>
+          
+          <div className="w-14 shrink-0 bg-white/15 backdrop-blur-xl rounded-2xl p-2 border border-white/25 shadow-sm flex flex-col items-center justify-between relative">
+            <div className="text-[10px] font-extrabold text-[#2A2E35] font-mono mb-2">
+              {Math.round(getDecibels())}
+              <span className="text-[8px] text-gray-500 block -mt-1 text-center">dB</span>
+            </div>
+            <div className="w-4 flex-1 bg-gray-200/50 rounded-full overflow-hidden flex items-end justify-center pb-1">
+               <motion.div 
+                 className="w-full rounded-full"
+                 animate={{ 
+                   height: `${Math.max(4, Math.min(100, ((getDecibels() + 60) / 60) * 100))}%`, 
+                   backgroundColor: `hsl(${120 * (1 - Math.max(0, Math.min(1, (getDecibels() + 60) / 60)))}, 80%, 50%)` 
+                 }}
+                 transition={{ type: "tween", duration: 0.1 }}
+               />
+            </div>
+          </div>
         </div>
 
         {/* Signal parameters details capsule panel */}
-        <div className="bg-white/40 backdrop-blur-xl rounded-2xl p-4 border border-white/60 shadow-sm w-full grid grid-cols-3 gap-3 text-center">
+        <div className="bg-white/15 backdrop-blur-2xl rounded-2xl p-4 border border-white/30 shadow-sm w-full grid grid-cols-3 gap-3 text-center">
           <div>
             <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-wider">Interface link</span>
             <span className="text-xs font-extrabold text-[#2A2E35] mt-1 block truncate">48 kHz • 24bit</span>
@@ -233,7 +310,7 @@ export function RecordScreen({ audioHook, bluetoothHook, onSaveCompleted, onNavi
         
         <button 
           onClick={() => onNavigateToTab('recordings')} 
-          className="flex flex-col items-center justify-center p-3 bg-white/70 hover:bg-white border border-white/60 rounded-2xl shadow-sm text-gray-700 hover:text-emerald-600 transition hover:scale-105 active:scale-95 cursor-pointer"
+          className="flex flex-col items-center justify-center p-3 bg-white/35 hover:bg-white/50 border border-white/30 backdrop-blur-lg rounded-2xl shadow-sm text-gray-700 hover:text-emerald-600 transition hover:scale-105 active:scale-95 cursor-pointer"
         >
           <Edit size={18} className="mb-1" />
           <span className="text-[10px] font-extrabold tracking-tight">Studio List</span>
@@ -242,7 +319,7 @@ export function RecordScreen({ audioHook, bluetoothHook, onSaveCompleted, onNavi
         <button 
           onClick={isRecording ? handleSave : undefined}
           disabled={!isRecording}
-          className="flex flex-col items-center justify-center p-3 bg-white/70 border border-white/60 rounded-2xl shadow-sm text-gray-700 hover:text-emerald-600 transition hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-45 disabled:pointer-events-none"
+          className="flex flex-col items-center justify-center p-3 bg-white/35 hover:bg-white/50 border border-white/30 backdrop-blur-lg rounded-2xl shadow-sm text-gray-700 hover:text-emerald-600 transition hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-45 disabled:pointer-events-none"
         >
           <Save size={18} className="mb-1" />
           <span className="text-[10px] font-extrabold tracking-tight">Save</span>

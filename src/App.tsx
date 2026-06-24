@@ -2,10 +2,9 @@ import { useState, useEffect } from 'react';
 import { RecordScreen } from './screens/RecordScreen';
 import { ListScreen } from './screens/ListScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
-import { EditScreen } from './screens/EditScreen';
+import { ExportScreen } from './screens/ExportScreen';
 import { BottomNav } from './components/BottomNav';
 import { useAudioRecorder } from './lib/useAudioRecorder';
-import { useBluetooth } from './lib/useBluetooth';
 import { Recording } from './types';
 import { deleteRecording, getRecordings } from './lib/storage';
 import { AnimatePresence, motion } from 'motion/react';
@@ -16,7 +15,6 @@ export default function App() {
   const [lastLoadedRecording, setLastLoadedRecording] = useState<Recording | null>(null);
   
   const audioHook = useAudioRecorder();
-  const bluetoothHook = useBluetooth();
 
   const handleNavigate = (tab: string) => {
     setCurrentTab(tab);
@@ -25,7 +23,7 @@ export default function App() {
   const handleSelectRecording = (recording: Recording) => {
     setSelectedRecording(recording);
     setLastLoadedRecording(recording);
-    setCurrentTab('edit'); // Automatically switch to the editing tab when a recording is tapped
+    setCurrentTab('export'); // Automatically switch to the export tab when a recording is tapped
   };
 
   const handleDeleteRecording = async (id: string) => {
@@ -96,16 +94,8 @@ export default function App() {
       </div>
 
       {/* Screen Frame Container with Frosted Glass panel design styles */}
-      <div className="w-full h-full max-w-md bg-white/60 tall:bg-white/50 backdrop-blur-2xl flex flex-col relative overflow-hidden shadow-[0_24px_80px_rgba(0,0,0,0.06)] border border-white/50 z-10 sm:h-[830px] sm:rounded-[2.8rem]">
+      <div className="w-full h-full max-w-md bg-white/30 tall:bg-white/20 backdrop-blur-3xl flex flex-col relative overflow-hidden shadow-[0_32px_96px_rgba(0,0,0,0.04)] border border-white/40 z-10 sm:h-[830px] sm:rounded-[2.8rem]">
         
-        {/* Status Bar / Dynamic Island decoration */}
-        <div className="hidden sm:flex absolute top-0 left-0 right-0 h-6 bg-transparent z-50 justify-center">
-          <div className="w-28 h-4.5 bg-black/80 rounded-b-xl shadow-inner flex items-center justify-around px-2 text-[8px] text-white/50 font-bold tracking-widest font-mono">
-            <span>VOCALA</span>
-            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping"></div>
-          </div>
-        </div>
-
         {/* Action views router */}
         <div className="flex-1 overflow-hidden relative z-10">
           <AnimatePresence mode="wait">
@@ -120,7 +110,6 @@ export default function App() {
               {currentTab === 'record' && (
                 <RecordScreen 
                   audioHook={audioHook} 
-                  bluetoothHook={bluetoothHook}
                   onSaveCompleted={() => handleNavigate('recordings')} 
                   onNavigateToTab={handleNavigate}
                 />
@@ -133,8 +122,8 @@ export default function App() {
                 />
               )}
 
-              {currentTab === 'edit' && (
-                <EditScreen 
+              {currentTab === 'export' && (
+                <ExportScreen 
                   recording={selectedRecording || lastLoadedRecording || {
                     id: 'placeholder',
                     title: 'No Recording Selected',
@@ -152,7 +141,6 @@ export default function App() {
               {currentTab === 'settings' && (
                 <SettingsScreen 
                   audioHook={audioHook} 
-                  bluetoothHook={bluetoothHook}
                   onBack={() => handleNavigate('record')} 
                 />
               )}

@@ -2,8 +2,7 @@
   "name": "Vocala Pro Recorder",
   "description": "Professional web-based voice recorder featuring DSP audio enhancement, waveform visualization, and robust local storage.",
   "requestFramePermissions": [
-    "microphone",
-    "bluetooth"
+    "microphone"
   ],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
